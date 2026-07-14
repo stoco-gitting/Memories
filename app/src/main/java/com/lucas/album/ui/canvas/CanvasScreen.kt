@@ -61,6 +61,12 @@ private const val MIN_ZOOM = 0.1f
 private const val MAX_ZOOM = 3f
 private const val DEFAULT_ZOOM = 0.4f
 
+// Photos are composed (and their images decoded) only if they fall within this multiple
+// of the current on-screen field of view — otherwise hundreds of photos scattered across
+// the 4000dp board would all render at once regardless of how few are actually visible.
+// >100% so a photo doesn't visibly pop in/out right at the screen edge while panning.
+private const val CULL_FOV_MARGIN = 1.3f
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CanvasScreen(viewModel: CanvasViewModel, darkMode: Boolean, onToggleDarkMode: () -> Unit) {
@@ -208,7 +214,29 @@ fun CanvasScreen(viewModel: CanvasViewModel, darkMode: Boolean, onToggleDarkMode
                             transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
                         },
                 ) {
-                    layers.sortedBy { it.zIndex }.forEach { layer ->
+                    // Visible field of view, translated from screen space back into virtual
+                    // canvas space (inverting the graphicsLayer transform above), then padded
+                    // out to CULL_FOV_MARGIN so photos just past the edge stay rendered.
+                    val fovLeft = -panX / zoom
+                    val fovTop = -panY / zoom
+                    val fovRight = (viewportWidthPx - panX) / zoom
+                    val fovBottom = (viewportHeightPx - panY) / zoom
+                    val fovCenterX = (fovLeft + fovRight) / 2f
+                    val fovCenterY = (fovTop + fovBottom) / 2f
+                    val cullHalfWidth = (fovRight - fovLeft) / 2f * CULL_FOV_MARGIN
+                    val cullHalfHeight = (fovBottom - fovTop) / 2f * CULL_FOV_MARGIN
+                    val cullLeft = fovCenterX - cullHalfWidth
+                    val cullRight = fovCenterX + cullHalfWidth
+                    val cullTop = fovCenterY - cullHalfHeight
+                    val cullBottom = fovCenterY + cullHalfHeight
+
+                    val visibleLayers = layers.filter { layer ->
+                        val x = layer.posXFraction * virtualSizePx
+                        val y = layer.posYFraction * virtualSizePx
+                        x in cullLeft..cullRight && y in cullTop..cullBottom
+                    }
+
+                    visibleLayers.sortedBy { it.zIndex }.forEach { layer ->
                         PhotoLayerItem(
                             layer = layer,
                             photoFile = viewModel.fileFor(layer),
