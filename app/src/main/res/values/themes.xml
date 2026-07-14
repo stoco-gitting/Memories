@@ -1,0 +1,8 @@
+<resources>
+    <style name="Theme.Album" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <style name="Theme.Album.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="postSplashScreenTheme">@style/Theme.Album</item>
+    </style>
+</resources>

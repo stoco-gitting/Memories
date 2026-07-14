@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">Album</string>
+    <string name="proposal_kicker">Uma pergunta para você</string>
+    <string name="proposal_question">Quer namorar comigo?</string>
+    <string name="proposal_yes">Sim!</string>
+    <string name="proposal_no">Não</string>
+    <string name="pin_hint">Uma data que você nunca vai esquecer</string>
+    <string name="canvas_empty_title">Nosso Álbum</string>
+    <string name="canvas_add_photo">Adicionar foto</string>
+    <string name="caption_hint">Escreva algo…</string>
+    <string name="export_success">Salvo na galeria</string>
+    <string name="export_failure">Não foi possível salvar. Tente novamente.</string>
+    <string name="export_view_gallery">Exportar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="save">Salvar</string>
+</resources>
