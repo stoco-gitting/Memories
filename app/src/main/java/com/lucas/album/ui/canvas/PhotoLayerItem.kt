@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -52,7 +53,7 @@ fun PhotoLayerItem(
                 scaleY = layer.scale
                 rotationZ = layer.rotationDegrees
             }
-            .size(baseSizeDp)
+            .width(baseSizeDp)
             .shadow(elevation = 6.dp, shape = RoundedCornerShape(8.dp), clip = false)
             .background(Color.White, RoundedCornerShape(8.dp))
             .then(
@@ -96,7 +97,9 @@ fun PhotoLayerItem(
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.DarkGray,
                     maxLines = 2,
-                    modifier = Modifier.padding(top = 4.dp),
+                    modifier = Modifier
+                        .width(baseSizeDp - 12.dp)
+                        .padding(top = 4.dp),
                 )
             }
         }
