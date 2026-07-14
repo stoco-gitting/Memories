@@ -46,8 +46,7 @@ class AppViewModel(
         viewModelScope.launch {
             preferences.setHasAnsweredProposal(true)
             pinManager.setUpFixedPin()
-            unlockedThisProcess = true
-            _screen.value = Screen.Canvas
+            _screen.value = Screen.Pin
         }
     }
 
