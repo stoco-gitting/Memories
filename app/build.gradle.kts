@@ -59,7 +59,7 @@ dependencies {
     implementation(libs.ui.tooling.preview)
     debugImplementation(libs.ui.tooling)
     implementation(libs.material3)
-    implementation(libs.material.icons.core)
+    implementation(libs.material.icons.extended)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)

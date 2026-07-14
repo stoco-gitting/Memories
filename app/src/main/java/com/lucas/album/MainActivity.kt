@@ -5,7 +5,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.lucas.album.ui.AlbumApp
-import com.lucas.album.ui.theme.AlbumTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -15,9 +14,7 @@ class MainActivity : ComponentActivity() {
         val container = (application as AlbumApplication).container
 
         setContent {
-            AlbumTheme {
-                AlbumApp(container = container)
-            }
+            AlbumApp(container = container)
         }
     }
 }

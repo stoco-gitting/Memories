@@ -18,6 +18,7 @@ import com.lucas.album.ui.canvas.CanvasViewModel
 import com.lucas.album.ui.pin.PinScreen
 import com.lucas.album.ui.pin.PinViewModel
 import com.lucas.album.ui.proposal.ProposalScreen
+import com.lucas.album.ui.theme.AlbumTheme
 
 @Composable
 fun AlbumApp(container: AppContainer, modifier: Modifier = Modifier) {
@@ -25,34 +26,41 @@ fun AlbumApp(container: AppContainer, modifier: Modifier = Modifier) {
         factory = AppViewModel.factory(container.preferences, container.pinManager)
     )
     val screen by appViewModel.screen.collectAsState()
+    val darkMode by appViewModel.darkMode.collectAsState()
 
-    AnimatedContent(
-        targetState = screen,
-        modifier = modifier.fillMaxSize(),
-        transitionSpec = {
-            (fadeIn(tween(450)) + scaleIn(initialScale = 0.94f, animationSpec = tween(450))) togetherWith
-                fadeOut(tween(200))
-        },
-        label = "screen-switch",
-    ) { current ->
-        when (current) {
-            Screen.Loading -> Unit
-            Screen.Proposal -> ProposalScreen(onAnswerYes = appViewModel::onProposalAnswered)
-            Screen.Pin -> {
-                val pinViewModel: PinViewModel = viewModel(
-                    factory = PinViewModel.factory(container.pinManager)
-                )
-                PinScreen(viewModel = pinViewModel, onVerified = appViewModel::onPinVerified)
-            }
-            Screen.Canvas -> {
-                val canvasViewModel: CanvasViewModel = viewModel(
-                    factory = CanvasViewModel.factory(
-                        container.photoLayerDao,
-                        container.photoFileRepository,
-                        container.photoExportRepository,
+    AlbumTheme(darkTheme = darkMode) {
+        AnimatedContent(
+            targetState = screen,
+            modifier = modifier.fillMaxSize(),
+            transitionSpec = {
+                (fadeIn(tween(450)) + scaleIn(initialScale = 0.94f, animationSpec = tween(450))) togetherWith
+                    fadeOut(tween(200))
+            },
+            label = "screen-switch",
+        ) { current ->
+            when (current) {
+                Screen.Loading -> Unit
+                Screen.Proposal -> ProposalScreen(onAnswerYes = appViewModel::onProposalAnswered)
+                Screen.Pin -> {
+                    val pinViewModel: PinViewModel = viewModel(
+                        factory = PinViewModel.factory(container.pinManager)
                     )
-                )
-                CanvasScreen(viewModel = canvasViewModel)
+                    PinScreen(viewModel = pinViewModel, onVerified = appViewModel::onPinVerified)
+                }
+                Screen.Canvas -> {
+                    val canvasViewModel: CanvasViewModel = viewModel(
+                        factory = CanvasViewModel.factory(
+                            container.photoLayerDao,
+                            container.photoFileRepository,
+                            container.photoExportRepository,
+                        )
+                    )
+                    CanvasScreen(
+                        viewModel = canvasViewModel,
+                        darkMode = darkMode,
+                        onToggleDarkMode = appViewModel::toggleDarkMode,
+                    )
+                }
             }
         }
     }

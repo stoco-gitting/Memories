@@ -35,6 +35,7 @@ fun PhotoLayerItem(
     photoFile: File,
     canvasWidthPx: Float,
     canvasHeightPx: Float,
+    editable: Boolean,
     onTransform: (posXFraction: Float, posYFraction: Float, scale: Float, rotationDegrees: Float) -> Unit,
     onGestureStart: () -> Unit,
     onCaptionClick: () -> Unit,
@@ -54,25 +55,31 @@ fun PhotoLayerItem(
             .size(baseSizeDp)
             .shadow(elevation = 6.dp, shape = RoundedCornerShape(8.dp), clip = false)
             .background(Color.White, RoundedCornerShape(8.dp))
-            .pointerInput(layer.id) {
-                // Local accumulators seeded once when this gesture-detector coroutine
-                // starts, then mutated only locally — reading `layer.*` on every callback
-                // instead would use a stale snapshot from whenever this block launched,
-                // since recomposition doesn't restart pointerInput for the same key.
-                var currentX = layer.posXFraction
-                var currentY = layer.posYFraction
-                var currentScale = layer.scale
-                var currentRotation = layer.rotationDegrees
+            .then(
+                if (editable) {
+                    // Local accumulators seeded once when this gesture-detector coroutine
+                    // starts, then mutated only locally — reading `layer.*` on every callback
+                    // instead would use a stale snapshot from whenever this block launched,
+                    // since recomposition doesn't restart pointerInput for the same key.
+                    Modifier.pointerInput(layer.id) {
+                        var currentX = layer.posXFraction
+                        var currentY = layer.posYFraction
+                        var currentScale = layer.scale
+                        var currentRotation = layer.rotationDegrees
 
-                detectTransformGestures { _, pan, zoom, rotation ->
-                    onGestureStart()
-                    currentX = ((currentX * canvasWidthPx + pan.x) / canvasWidthPx).coerceIn(0f, 1f)
-                    currentY = ((currentY * canvasHeightPx + pan.y) / canvasHeightPx).coerceIn(0f, 1f)
-                    currentScale = (currentScale * zoom).coerceIn(0.3f, 4f)
-                    currentRotation += rotation
-                    onTransform(currentX, currentY, currentScale, currentRotation)
-                }
-            },
+                        detectTransformGestures { _, pan, zoom, rotation ->
+                            onGestureStart()
+                            currentX = ((currentX * canvasWidthPx + pan.x) / canvasWidthPx).coerceIn(0f, 1f)
+                            currentY = ((currentY * canvasHeightPx + pan.y) / canvasHeightPx).coerceIn(0f, 1f)
+                            currentScale = (currentScale * zoom).coerceIn(0.3f, 4f)
+                            currentRotation += rotation
+                            onTransform(currentX, currentY, currentScale, currentRotation)
+                        }
+                    }
+                } else {
+                    Modifier
+                },
+            ),
     ) {
         Column(modifier = Modifier.padding(6.dp)) {
             AsyncImage(
@@ -94,40 +101,42 @@ fun PhotoLayerItem(
             }
         }
 
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(2.dp)
-                .size(22.dp)
-                .clip(CircleShape)
-                .background(Color.Black.copy(alpha = 0.55f))
-                .clickable(onClick = onDeleteClick),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                Icons.Filled.Close,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(14.dp),
-            )
-        }
+        if (editable) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(2.dp)
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .clickable(onClick = onDeleteClick),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
 
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(2.dp)
-                .size(22.dp)
-                .clip(CircleShape)
-                .background(Color.Black.copy(alpha = 0.55f))
-                .clickable(onClick = onCaptionClick),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                Icons.Filled.Edit,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(14.dp),
-            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(2.dp)
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .clickable(onClick = onCaptionClick),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Filled.Edit,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
         }
     }
 }

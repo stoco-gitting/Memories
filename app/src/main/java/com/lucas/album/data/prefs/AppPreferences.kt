@@ -14,6 +14,7 @@ class AppPreferences(private val context: Context) {
     private object Keys {
         val HAS_ANSWERED_PROPOSAL = booleanPreferencesKey("has_answered_proposal")
         val PIN_HASH = stringPreferencesKey("pin_hash")
+        val DARK_MODE = booleanPreferencesKey("dark_mode")
     }
 
     suspend fun hasAnsweredProposal(): Boolean =
@@ -28,5 +29,12 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setPinHash(hash: String) {
         context.dataStore.edit { it[Keys.PIN_HASH] = hash }
+    }
+
+    suspend fun isDarkMode(): Boolean =
+        context.dataStore.data.first()[Keys.DARK_MODE] ?: true
+
+    suspend fun setDarkMode(value: Boolean) {
+        context.dataStore.edit { it[Keys.DARK_MODE] = value }
     }
 }

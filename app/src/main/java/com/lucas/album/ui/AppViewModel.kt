@@ -29,16 +29,28 @@ class AppViewModel(
     private val _screen = MutableStateFlow<Screen>(Screen.Loading)
     val screen: StateFlow<Screen> = _screen.asStateFlow()
 
+    private val _darkMode = MutableStateFlow(true)
+    val darkMode: StateFlow<Boolean> = _darkMode.asStateFlow()
+
     private var unlockedThisProcess = false
 
     init {
         viewModelScope.launch {
+            _darkMode.value = preferences.isDarkMode()
             val hasAnswered = preferences.hasAnsweredProposal()
             _screen.value = when {
                 !hasAnswered -> Screen.Proposal
                 unlockedThisProcess -> Screen.Canvas
                 else -> Screen.Pin
             }
+        }
+    }
+
+    fun toggleDarkMode() {
+        viewModelScope.launch {
+            val newValue = !_darkMode.value
+            preferences.setDarkMode(newValue)
+            _darkMode.value = newValue
         }
     }
 

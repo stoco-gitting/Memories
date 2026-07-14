@@ -14,4 +14,8 @@
     <string name="export_view_gallery">Exportar</string>
     <string name="cancel">Cancelar</string>
     <string name="save">Salvar</string>
+    <string name="canvas_mode_edit">Modo edição (toque para navegar)</string>
+    <string name="canvas_mode_view">Modo navegação (toque para editar)</string>
+    <string name="toggle_theme">Alternar tema</string>
+    <string name="recenter_canvas">Centralizar</string>
 </resources>
