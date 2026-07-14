@@ -33,6 +33,9 @@ class CanvasViewModel(
     private val _exportState = MutableStateFlow<ExportState>(ExportState.Idle)
     val exportState: StateFlow<ExportState> = _exportState.asStateFlow()
 
+    private val _photoAddFailed = MutableStateFlow(false)
+    val photoAddFailed: StateFlow<Boolean> = _photoAddFailed.asStateFlow()
+
     private val debounceJobs = mutableMapOf<Long, Job>()
     private val pendingWrites = mutableMapOf<Long, PhotoLayerEntity>()
 
@@ -52,10 +55,13 @@ class CanvasViewModel(
     fun fileFor(layer: PhotoLayerEntity): File = photoFileRepository.fileFor(layer.fileName)
 
     fun addPhotos(uris: List<Uri>) {
+        if (uris.isEmpty()) return
         viewModelScope.launch {
             var nextZ = dao.maxZIndex()
+            var anySucceeded = false
             for (uri in uris) {
                 val copied = photoFileRepository.copyToInternalStorage(uri) ?: continue
+                anySucceeded = true
                 nextZ += 1
                 dao.insert(
                     PhotoLayerEntity(
@@ -68,7 +74,12 @@ class CanvasViewModel(
                     )
                 )
             }
+            if (!anySucceeded) _photoAddFailed.value = true
         }
+    }
+
+    fun resetPhotoAddFailed() {
+        _photoAddFailed.value = false
     }
 
     // Operates on `layerId` and looks up the current entity from `_layers.value` rather

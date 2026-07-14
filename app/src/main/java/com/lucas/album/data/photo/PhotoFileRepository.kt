@@ -18,9 +18,14 @@ class PhotoFileRepository(private val context: Context) {
 
     suspend fun copyToInternalStorage(uri: Uri): CopiedPhoto? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        context.contentResolver.openInputStream(uri)?.use {
+        // inJustDecodeBounds mode always makes decodeStream return null by design (it only
+        // fills `bounds` as a side effect) — that null is not a failure signal, so it must
+        // not be chained into `?: return null` the way the real decode below correctly is.
+        val streamOpened = context.contentResolver.openInputStream(uri)?.use {
             BitmapFactory.decodeStream(it, null, bounds)
-        } ?: return null
+            true
+        }
+        if (streamOpened != true) return null
 
         val width = bounds.outWidth
         val height = bounds.outHeight

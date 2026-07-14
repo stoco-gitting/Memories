@@ -42,6 +42,7 @@ import com.lucas.album.data.local.PhotoLayerEntity
 fun CanvasScreen(viewModel: CanvasViewModel) {
     val layers by viewModel.layers.collectAsState()
     val exportState by viewModel.exportState.collectAsState()
+    val photoAddFailed by viewModel.photoAddFailed.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     var captionTarget by remember { mutableStateOf<PhotoLayerEntity?>(null) }
@@ -74,6 +75,14 @@ fun CanvasScreen(viewModel: CanvasViewModel) {
                 viewModel.resetExportState()
             }
             else -> Unit
+        }
+    }
+
+    val photoAddFailureMessage = stringResource(R.string.photo_add_failure)
+    LaunchedEffect(photoAddFailed) {
+        if (photoAddFailed) {
+            snackbarHostState.showSnackbar(photoAddFailureMessage)
+            viewModel.resetPhotoAddFailed()
         }
     }
 
