@@ -1,5 +1,6 @@
 package com.lucas.album.ui.canvas
 
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -179,12 +180,26 @@ class CanvasViewModel(
         }
     }
 
+    // Doesn't do the actual capture/save here — that needs real Compose UI (an off-screen
+    // render + a graphics-layer capture), which CanvasCaptureOverlay handles once it sees
+    // this state, calling back into onExportCaptured/onExportCaptureFailed below.
     fun export() {
+        if (_layers.value.isEmpty()) {
+            _exportState.value = ExportState.Failure
+            return
+        }
+        _exportState.value = ExportState.Exporting
+    }
+
+    fun onExportCaptured(bitmap: Bitmap) {
         viewModelScope.launch {
-            _exportState.value = ExportState.Exporting
-            val success = exportRepository.exportToGallery(_layers.value, photoFileRepository)
+            val success = exportRepository.saveCanvasSnapshot(bitmap)
             _exportState.value = if (success) ExportState.Success else ExportState.Failure
         }
+    }
+
+    fun onExportCaptureFailed() {
+        _exportState.value = ExportState.Failure
     }
 
     fun resetExportState() {

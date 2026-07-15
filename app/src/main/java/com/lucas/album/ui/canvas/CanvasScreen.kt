@@ -68,10 +68,8 @@ import com.lucas.album.data.local.PhotoLayerEntity
 
 private enum class CanvasMode { Edit, View }
 
-// The board is much bigger than any screen so hundreds of photos have room to spread out
-// without piling on top of each other; View mode pans/zooms this whole space, Edit mode
-// leaves it fixed and drags individual photos instead — the two never run at once.
-private val VIRTUAL_CANVAS_SIZE = 4000.dp
+// View mode pans/zooms the whole virtual canvas (CanvasConstants.VIRTUAL_CANVAS_SIZE);
+// Edit mode leaves it fixed and drags individual photos instead — the two never run at once.
 private const val MIN_ZOOM = 0.1f
 private const val MAX_ZOOM = 3f
 private const val DEFAULT_ZOOM = 0.4f
@@ -322,7 +320,7 @@ fun CanvasScreen(viewModel: CanvasViewModel, darkMode: Boolean, onToggleDarkMode
         ) {
             val viewportWidthPx = with(density) { maxWidth.toPx() }
             val viewportHeightPx = with(density) { maxHeight.toPx() }
-            val virtualSizePx = with(density) { VIRTUAL_CANVAS_SIZE.toPx() }
+            val virtualSizePx = with(density) { CanvasConstants.VIRTUAL_CANVAS_SIZE.toPx() }
 
             fun recenter() {
                 zoom = DEFAULT_ZOOM
@@ -354,7 +352,7 @@ fun CanvasScreen(viewModel: CanvasViewModel, darkMode: Boolean, onToggleDarkMode
             ) {
                 Box(
                     modifier = Modifier
-                        .size(VIRTUAL_CANVAS_SIZE)
+                        .size(CanvasConstants.VIRTUAL_CANVAS_SIZE)
                         .graphicsLayer {
                             translationX = panX
                             translationY = panY
@@ -422,6 +420,18 @@ fun CanvasScreen(viewModel: CanvasViewModel, darkMode: Boolean, onToggleDarkMode
                     viewModel.setCaption(target.id, caption)
                     captionTarget = null
                 },
+            )
+        }
+
+        // Renders the real canvas content off-screen (unzoomed, uncropped, every photo) and
+        // captures it to a bitmap — export is a snapshot of what's actually on the canvas,
+        // never a second hand-drawn approximation of it.
+        if (exportState == CanvasViewModel.ExportState.Exporting) {
+            CanvasCaptureOverlay(
+                layers = layers,
+                fileFor = { layer -> viewModel.fileFor(layer) },
+                onCaptured = { bitmap -> viewModel.onExportCaptured(bitmap) },
+                onFailed = { viewModel.onExportCaptureFailed() },
             )
         }
     }

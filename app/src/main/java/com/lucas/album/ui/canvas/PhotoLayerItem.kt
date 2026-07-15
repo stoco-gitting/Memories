@@ -42,7 +42,7 @@ fun PhotoLayerItem(
     onCaptionClick: () -> Unit,
     onDeleteClick: () -> Unit,
 ) {
-    val baseSizeDp = 140.dp
+    val baseSizeDp = CanvasConstants.BASE_CARD_SIZE
 
     Box(
         modifier = Modifier
