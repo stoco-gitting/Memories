@@ -18,4 +18,15 @@
     <string name="canvas_mode_view">Modo navegação (toque para editar)</string>
     <string name="toggle_theme">Alternar tema</string>
     <string name="recenter_canvas">Centralizar</string>
+    <string name="more_options">Mais opções</string>
+    <string name="backup_export_action">Backup</string>
+    <string name="backup_import_action">Restaurar</string>
+    <string name="backup_export_success">Backup salvo</string>
+    <string name="backup_export_failure">Não foi possível criar o backup. Tente novamente.</string>
+    <string name="backup_import_success">%1$d fotos restauradas</string>
+    <string name="backup_import_success_with_skipped">%1$d fotos restauradas, %2$d ignoradas</string>
+    <string name="backup_import_invalid_file">Arquivo de backup inválido</string>
+    <string name="backup_import_unsupported_version">Este backup foi criado por uma versão mais nova do app</string>
+    <string name="backup_import_insufficient_storage">Espaço insuficiente para restaurar o backup</string>
+    <string name="backup_import_io_error">Não foi possível ler o arquivo. Tente novamente.</string>
 </resources>

@@ -3,6 +3,13 @@ package com.lucas.album.ui.canvas
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -10,6 +17,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -17,13 +25,19 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PanTool
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -42,6 +56,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -67,15 +82,23 @@ private const val DEFAULT_ZOOM = 0.4f
 // >100% so a photo doesn't visibly pop in/out right at the screen edge while panning.
 private const val CULL_FOV_MARGIN = 1.3f
 
+private const val CHROME_ENTER_MS = 220
+private const val CHROME_EXIT_MS = 130
+private const val FAB_ENTER_SCALE = 0.85f
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CanvasScreen(viewModel: CanvasViewModel, darkMode: Boolean, onToggleDarkMode: () -> Unit) {
+    val context = LocalContext.current
     val layers by viewModel.layers.collectAsState()
     val exportState by viewModel.exportState.collectAsState()
     val photoAddFailed by viewModel.photoAddFailed.collectAsState()
+    val backupState by viewModel.backupState.collectAsState()
+    val importState by viewModel.importState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     var mode by remember { mutableStateOf(CanvasMode.Edit) }
+    var overflowExpanded by remember { mutableStateOf(false) }
     var panX by remember { mutableStateOf(0f) }
     var panY by remember { mutableStateOf(0f) }
     var zoom by remember { mutableStateOf(DEFAULT_ZOOM) }
@@ -83,9 +106,20 @@ fun CanvasScreen(viewModel: CanvasViewModel, darkMode: Boolean, onToggleDarkMode
 
     var captionTarget by remember { mutableStateOf<PhotoLayerEntity?>(null) }
 
+    val backupInFlight = backupState == CanvasViewModel.BackupState.Exporting
+    val importInFlight = importState == CanvasViewModel.ImportState.Importing
+
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(),
     ) { uris -> if (uris.isNotEmpty()) viewModel.addPhotos(uris) }
+
+    val exportBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri -> if (uri != null) viewModel.exportBackup(uri) }
+
+    val importBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri -> if (uri != null) viewModel.importBackup(uri) }
 
     // The one legitimate use of process-lifecycle observation in this screen: flush any
     // debounced-but-unwritten drag position immediately if she backgrounds mid-gesture.
@@ -122,43 +156,158 @@ fun CanvasScreen(viewModel: CanvasViewModel, darkMode: Boolean, onToggleDarkMode
         }
     }
 
+    val backupExportSuccessMessage = stringResource(R.string.backup_export_success)
+    val backupExportFailureMessage = stringResource(R.string.backup_export_failure)
+    LaunchedEffect(backupState) {
+        when (backupState) {
+            CanvasViewModel.BackupState.Success -> {
+                snackbarHostState.showSnackbar(backupExportSuccessMessage)
+                viewModel.resetBackupState()
+            }
+            CanvasViewModel.BackupState.Failure -> {
+                snackbarHostState.showSnackbar(backupExportFailureMessage)
+                viewModel.resetBackupState()
+            }
+            else -> Unit
+        }
+    }
+
+    val backupImportInvalidFileMessage = stringResource(R.string.backup_import_invalid_file)
+    val backupImportUnsupportedVersionMessage = stringResource(R.string.backup_import_unsupported_version)
+    val backupImportInsufficientStorageMessage = stringResource(R.string.backup_import_insufficient_storage)
+    val backupImportIoErrorMessage = stringResource(R.string.backup_import_io_error)
+    LaunchedEffect(importState) {
+        when (val state = importState) {
+            is CanvasViewModel.ImportState.Success -> {
+                val message = if (state.skippedCount > 0) {
+                    context.getString(R.string.backup_import_success_with_skipped, state.importedCount, state.skippedCount)
+                } else {
+                    context.getString(R.string.backup_import_success, state.importedCount)
+                }
+                snackbarHostState.showSnackbar(message)
+                viewModel.resetImportState()
+            }
+            CanvasViewModel.ImportState.Failure.InvalidFile -> {
+                snackbarHostState.showSnackbar(backupImportInvalidFileMessage)
+                viewModel.resetImportState()
+            }
+            CanvasViewModel.ImportState.Failure.UnsupportedVersion -> {
+                snackbarHostState.showSnackbar(backupImportUnsupportedVersionMessage)
+                viewModel.resetImportState()
+            }
+            CanvasViewModel.ImportState.Failure.InsufficientStorage -> {
+                snackbarHostState.showSnackbar(backupImportInsufficientStorageMessage)
+                viewModel.resetImportState()
+            }
+            CanvasViewModel.ImportState.Failure.IoError -> {
+                snackbarHostState.showSnackbar(backupImportIoErrorMessage)
+                viewModel.resetImportState()
+            }
+            else -> Unit
+        }
+    }
+
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.app_name)) },
-                actions = {
-                    IconButton(onClick = { mode = if (mode == CanvasMode.Edit) CanvasMode.View else CanvasMode.Edit }) {
-                        Icon(
-                            if (mode == CanvasMode.Edit) Icons.Filled.Edit else Icons.Filled.PanTool,
-                            contentDescription = stringResource(
-                                if (mode == CanvasMode.Edit) R.string.canvas_mode_edit else R.string.canvas_mode_view
-                            ),
-                        )
-                    }
-                    IconButton(onClick = { recenterRequested = true }) {
-                        Icon(Icons.Filled.CenterFocusStrong, contentDescription = stringResource(R.string.recenter_canvas))
-                    }
-                    IconButton(onClick = onToggleDarkMode) {
-                        Icon(
-                            if (darkMode) Icons.Filled.LightMode else Icons.Filled.DarkMode,
-                            contentDescription = stringResource(R.string.toggle_theme),
-                        )
-                    }
+            AnimatedContent(
+                targetState = mode,
+                transitionSpec = {
+                    fadeIn(tween(CHROME_ENTER_MS))
+                        .togetherWith(fadeOut(tween(CHROME_EXIT_MS)))
+                        .using(SizeTransform(clip = false))
                 },
-            )
+                label = "canvas-topbar",
+            ) { currentMode ->
+                if (currentMode == CanvasMode.Edit) {
+                    TopAppBar(
+                        title = { Text(stringResource(R.string.app_name)) },
+                        actions = {
+                            IconButton(onClick = {
+                                overflowExpanded = false
+                                mode = CanvasMode.View
+                            }) {
+                                Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.canvas_mode_edit))
+                            }
+                            IconButton(onClick = { recenterRequested = true }) {
+                                Icon(Icons.Filled.CenterFocusStrong, contentDescription = stringResource(R.string.recenter_canvas))
+                            }
+                            Box {
+                                IconButton(onClick = { overflowExpanded = true }) {
+                                    Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.more_options))
+                                }
+                                DropdownMenu(expanded = overflowExpanded, onDismissRequest = { overflowExpanded = false }) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.toggle_theme)) },
+                                        leadingIcon = {
+                                            Icon(
+                                                if (darkMode) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                                                contentDescription = null,
+                                            )
+                                        },
+                                        onClick = {
+                                            overflowExpanded = false
+                                            onToggleDarkMode()
+                                        },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.backup_export_action)) },
+                                        leadingIcon = { Icon(Icons.Filled.FileUpload, contentDescription = null) },
+                                        onClick = {
+                                            overflowExpanded = false
+                                            if (!backupInFlight) {
+                                                exportBackupLauncher.launch("memories-backup-${System.currentTimeMillis()}.zip")
+                                            }
+                                        },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.backup_import_action)) },
+                                        leadingIcon = { Icon(Icons.Filled.FileDownload, contentDescription = null) },
+                                        onClick = {
+                                            overflowExpanded = false
+                                            if (!importInFlight) {
+                                                importBackupLauncher.launch(arrayOf("application/zip"))
+                                            }
+                                        },
+                                    )
+                                }
+                            }
+                        },
+                    )
+                }
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                FloatingActionButton(onClick = {
-                    photoPickerLauncher.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                    )
-                }) {
-                    Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.canvas_add_photo))
-                }
-                FloatingActionButton(onClick = { viewModel.export() }) {
-                    Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.export_view_gallery))
+            AnimatedContent(
+                targetState = mode,
+                contentAlignment = Alignment.BottomEnd,
+                transitionSpec = {
+                    (fadeIn(tween(CHROME_ENTER_MS)) + scaleIn(initialScale = FAB_ENTER_SCALE, animationSpec = tween(CHROME_ENTER_MS)))
+                        .togetherWith(fadeOut(tween(CHROME_EXIT_MS)))
+                        .using(SizeTransform(clip = false))
+                },
+                label = "canvas-fab",
+            ) { currentMode ->
+                when (currentMode) {
+                    CanvasMode.View -> {
+                        FloatingActionButton(onClick = { mode = CanvasMode.Edit }) {
+                            Icon(Icons.Filled.PanTool, contentDescription = stringResource(R.string.canvas_mode_view))
+                        }
+                    }
+                    CanvasMode.Edit -> {
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            FloatingActionButton(onClick = {
+                                photoPickerLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            }) {
+                                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.canvas_add_photo))
+                            }
+                            FloatingActionButton(onClick = { viewModel.export() }) {
+                                Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.export_view_gallery))
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -258,6 +407,10 @@ fun CanvasScreen(viewModel: CanvasViewModel, darkMode: Boolean, onToggleDarkMode
                     style = MaterialTheme.typography.headlineSmall,
                     modifier = Modifier.align(Alignment.Center),
                 )
+            }
+
+            if (backupInFlight || importInFlight) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter))
             }
         }
 

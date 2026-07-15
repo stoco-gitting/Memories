@@ -53,6 +53,7 @@ fun AlbumApp(container: AppContainer, modifier: Modifier = Modifier) {
                             container.photoLayerDao,
                             container.photoFileRepository,
                             container.photoExportRepository,
+                            container.backupRepository,
                         )
                     )
                     CanvasScreen(

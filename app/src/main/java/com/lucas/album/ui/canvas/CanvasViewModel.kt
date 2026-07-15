@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.lucas.album.data.backup.BackupRepository
 import com.lucas.album.data.local.PhotoLayerDao
 import com.lucas.album.data.local.PhotoLayerEntity
 import com.lucas.album.data.photo.PhotoExportRepository
@@ -25,6 +26,7 @@ class CanvasViewModel(
     private val dao: PhotoLayerDao,
     private val photoFileRepository: PhotoFileRepository,
     private val exportRepository: PhotoExportRepository,
+    private val backupRepository: BackupRepository,
 ) : ViewModel() {
 
     private val _layers = MutableStateFlow<List<PhotoLayerEntity>>(emptyList())
@@ -36,6 +38,12 @@ class CanvasViewModel(
     private val _photoAddFailed = MutableStateFlow(false)
     val photoAddFailed: StateFlow<Boolean> = _photoAddFailed.asStateFlow()
 
+    private val _backupState = MutableStateFlow<BackupState>(BackupState.Idle)
+    val backupState: StateFlow<BackupState> = _backupState.asStateFlow()
+
+    private val _importState = MutableStateFlow<ImportState>(ImportState.Idle)
+    val importState: StateFlow<ImportState> = _importState.asStateFlow()
+
     private val debounceJobs = mutableMapOf<Long, Job>()
     private val pendingWrites = mutableMapOf<Long, PhotoLayerEntity>()
 
@@ -44,6 +52,26 @@ class CanvasViewModel(
         data object Exporting : ExportState()
         data object Success : ExportState()
         data object Failure : ExportState()
+    }
+
+    sealed class BackupState {
+        data object Idle : BackupState()
+        data object Exporting : BackupState()
+        data object Success : BackupState()
+        data object Failure : BackupState()
+    }
+
+    sealed class ImportState {
+        data object Idle : ImportState()
+        data object Importing : ImportState()
+        data class Success(val importedCount: Int, val skippedCount: Int) : ImportState()
+
+        sealed class Failure : ImportState() {
+            data object InvalidFile : Failure()
+            data object UnsupportedVersion : Failure()
+            data object InsufficientStorage : Failure()
+            data object IoError : Failure()
+        }
     }
 
     init {
@@ -163,6 +191,43 @@ class CanvasViewModel(
         _exportState.value = ExportState.Idle
     }
 
+    fun exportBackup(destination: Uri) {
+        viewModelScope.launch {
+            _backupState.value = BackupState.Exporting
+            val success = backupRepository.exportBackup(destination, _layers.value)
+            _backupState.value = if (success) BackupState.Success else BackupState.Failure
+        }
+    }
+
+    fun resetBackupState() {
+        _backupState.value = BackupState.Idle
+    }
+
+    // Restored photos are appended, never replace what's already there — the current max
+    // zIndex is read once so the whole imported batch layers sensibly on top of it.
+    fun importBackup(source: Uri) {
+        viewModelScope.launch {
+            _importState.value = ImportState.Importing
+            when (val result = backupRepository.importBackup(source)) {
+                is BackupRepository.ImportResult.Success -> {
+                    if (result.layers.isNotEmpty()) {
+                        val base = dao.maxZIndex()
+                        dao.insertAll(result.layers.map { it.copy(zIndex = it.zIndex + base + 1) })
+                    }
+                    _importState.value = ImportState.Success(result.layers.size, result.skippedCount)
+                }
+                BackupRepository.ImportResult.InvalidFile -> _importState.value = ImportState.Failure.InvalidFile
+                BackupRepository.ImportResult.UnsupportedVersion -> _importState.value = ImportState.Failure.UnsupportedVersion
+                BackupRepository.ImportResult.InsufficientStorage -> _importState.value = ImportState.Failure.InsufficientStorage
+                BackupRepository.ImportResult.IoError -> _importState.value = ImportState.Failure.IoError
+            }
+        }
+    }
+
+    fun resetImportState() {
+        _importState.value = ImportState.Idle
+    }
+
     override fun onCleared() {
         flushPendingSaves()
         super.onCleared()
@@ -173,10 +238,11 @@ class CanvasViewModel(
             dao: PhotoLayerDao,
             photoFileRepository: PhotoFileRepository,
             exportRepository: PhotoExportRepository,
+            backupRepository: BackupRepository,
         ) = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return CanvasViewModel(dao, photoFileRepository, exportRepository) as T
+                return CanvasViewModel(dao, photoFileRepository, exportRepository, backupRepository) as T
             }
         }
     }

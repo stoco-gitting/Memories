@@ -18,6 +18,9 @@ interface PhotoLayerDao {
     @Insert
     suspend fun insert(entity: PhotoLayerEntity): Long
 
+    @Insert
+    suspend fun insertAll(entities: List<PhotoLayerEntity>)
+
     @Update
     suspend fun update(entity: PhotoLayerEntity)
 
