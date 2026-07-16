@@ -12,10 +12,8 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -30,7 +28,6 @@ import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PanTool
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -59,7 +56,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
@@ -89,7 +85,6 @@ private const val FAB_ENTER_SCALE = 0.85f
 fun CanvasScreen(viewModel: CanvasViewModel, darkMode: Boolean, onToggleDarkMode: () -> Unit) {
     val context = LocalContext.current
     val layers by viewModel.layers.collectAsState()
-    val exportState by viewModel.exportState.collectAsState()
     val photoAddFailed by viewModel.photoAddFailed.collectAsState()
     val backupState by viewModel.backupState.collectAsState()
     val importState by viewModel.importState.collectAsState()
@@ -128,22 +123,6 @@ fun CanvasScreen(viewModel: CanvasViewModel, darkMode: Boolean, onToggleDarkMode
         }
         ProcessLifecycleOwner.get().lifecycle.addObserver(observer)
         onDispose { ProcessLifecycleOwner.get().lifecycle.removeObserver(observer) }
-    }
-
-    val exportSuccessMessage = stringResource(R.string.export_success)
-    val exportFailureMessage = stringResource(R.string.export_failure)
-    LaunchedEffect(exportState) {
-        when (exportState) {
-            CanvasViewModel.ExportState.Success -> {
-                snackbarHostState.showSnackbar(exportSuccessMessage)
-                viewModel.resetExportState()
-            }
-            CanvasViewModel.ExportState.Failure -> {
-                snackbarHostState.showSnackbar(exportFailureMessage)
-                viewModel.resetExportState()
-            }
-            else -> Unit
-        }
     }
 
     val photoAddFailureMessage = stringResource(R.string.photo_add_failure)
@@ -293,17 +272,12 @@ fun CanvasScreen(viewModel: CanvasViewModel, darkMode: Boolean, onToggleDarkMode
                         }
                     }
                     CanvasMode.Edit -> {
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            FloatingActionButton(onClick = {
-                                photoPickerLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
-                            }) {
-                                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.canvas_add_photo))
-                            }
-                            FloatingActionButton(onClick = { viewModel.export() }) {
-                                Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.export_view_gallery))
-                            }
+                        FloatingActionButton(onClick = {
+                            photoPickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        }) {
+                            Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.canvas_add_photo))
                         }
                     }
                 }
@@ -420,18 +394,6 @@ fun CanvasScreen(viewModel: CanvasViewModel, darkMode: Boolean, onToggleDarkMode
                     viewModel.setCaption(target.id, caption)
                     captionTarget = null
                 },
-            )
-        }
-
-        // Renders the real canvas content off-screen (unzoomed, uncropped, every photo) and
-        // captures it to a bitmap — export is a snapshot of what's actually on the canvas,
-        // never a second hand-drawn approximation of it.
-        if (exportState == CanvasViewModel.ExportState.Exporting) {
-            CanvasCaptureOverlay(
-                layers = layers,
-                fileFor = { layer -> viewModel.fileFor(layer) },
-                onCaptured = { bitmap -> viewModel.onExportCaptured(bitmap) },
-                onFailed = { viewModel.onExportCaptureFailed() },
             )
         }
     }

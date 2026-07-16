@@ -1,6 +1,5 @@
 package com.lucas.album.ui.canvas
 
-import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -8,7 +7,6 @@ import androidx.lifecycle.viewModelScope
 import com.lucas.album.data.backup.BackupRepository
 import com.lucas.album.data.local.PhotoLayerDao
 import com.lucas.album.data.local.PhotoLayerEntity
-import com.lucas.album.data.photo.PhotoExportRepository
 import com.lucas.album.data.photo.PhotoFileRepository
 import java.io.File
 import kotlinx.coroutines.Job
@@ -26,15 +24,11 @@ import kotlin.random.Random
 class CanvasViewModel(
     private val dao: PhotoLayerDao,
     private val photoFileRepository: PhotoFileRepository,
-    private val exportRepository: PhotoExportRepository,
     private val backupRepository: BackupRepository,
 ) : ViewModel() {
 
     private val _layers = MutableStateFlow<List<PhotoLayerEntity>>(emptyList())
     val layers: StateFlow<List<PhotoLayerEntity>> = _layers.asStateFlow()
-
-    private val _exportState = MutableStateFlow<ExportState>(ExportState.Idle)
-    val exportState: StateFlow<ExportState> = _exportState.asStateFlow()
 
     private val _photoAddFailed = MutableStateFlow(false)
     val photoAddFailed: StateFlow<Boolean> = _photoAddFailed.asStateFlow()
@@ -47,13 +41,6 @@ class CanvasViewModel(
 
     private val debounceJobs = mutableMapOf<Long, Job>()
     private val pendingWrites = mutableMapOf<Long, PhotoLayerEntity>()
-
-    sealed class ExportState {
-        data object Idle : ExportState()
-        data object Exporting : ExportState()
-        data object Success : ExportState()
-        data object Failure : ExportState()
-    }
 
     sealed class BackupState {
         data object Idle : BackupState()
@@ -180,32 +167,6 @@ class CanvasViewModel(
         }
     }
 
-    // Doesn't do the actual capture/save here — that needs real Compose UI (an off-screen
-    // render + a graphics-layer capture), which CanvasCaptureOverlay handles once it sees
-    // this state, calling back into onExportCaptured/onExportCaptureFailed below.
-    fun export() {
-        if (_layers.value.isEmpty()) {
-            _exportState.value = ExportState.Failure
-            return
-        }
-        _exportState.value = ExportState.Exporting
-    }
-
-    fun onExportCaptured(bitmap: Bitmap) {
-        viewModelScope.launch {
-            val success = exportRepository.saveCanvasSnapshot(bitmap)
-            _exportState.value = if (success) ExportState.Success else ExportState.Failure
-        }
-    }
-
-    fun onExportCaptureFailed() {
-        _exportState.value = ExportState.Failure
-    }
-
-    fun resetExportState() {
-        _exportState.value = ExportState.Idle
-    }
-
     fun exportBackup(destination: Uri) {
         viewModelScope.launch {
             _backupState.value = BackupState.Exporting
@@ -252,12 +213,11 @@ class CanvasViewModel(
         fun factory(
             dao: PhotoLayerDao,
             photoFileRepository: PhotoFileRepository,
-            exportRepository: PhotoExportRepository,
             backupRepository: BackupRepository,
         ) = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return CanvasViewModel(dao, photoFileRepository, exportRepository, backupRepository) as T
+                return CanvasViewModel(dao, photoFileRepository, backupRepository) as T
             }
         }
     }

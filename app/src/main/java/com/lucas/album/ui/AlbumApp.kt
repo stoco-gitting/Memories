@@ -52,7 +52,6 @@ fun AlbumApp(container: AppContainer, modifier: Modifier = Modifier) {
                         factory = CanvasViewModel.factory(
                             container.photoLayerDao,
                             container.photoFileRepository,
-                            container.photoExportRepository,
                             container.backupRepository,
                         )
                     )

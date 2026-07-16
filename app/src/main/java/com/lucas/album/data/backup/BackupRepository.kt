@@ -19,8 +19,8 @@ import org.json.JSONException
 import org.json.JSONObject
 
 // Moves potentially hundreds of MB across hundreds of files in one call — unlike the
-// smaller PhotoFileRepository/PhotoExportRepository operations, an ANR is a real risk here
-// without explicitly moving off the caller's dispatcher.
+// smaller PhotoFileRepository operations, an ANR is a real risk here without explicitly
+// moving off the caller's dispatcher.
 class BackupRepository(
     private val context: Context,
     private val photoFileRepository: PhotoFileRepository,

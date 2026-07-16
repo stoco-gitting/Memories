@@ -4,7 +4,6 @@ import android.content.Context
 import com.lucas.album.data.auth.PinManager
 import com.lucas.album.data.backup.BackupRepository
 import com.lucas.album.data.local.AlbumDatabase
-import com.lucas.album.data.photo.PhotoExportRepository
 import com.lucas.album.data.photo.PhotoFileRepository
 import com.lucas.album.data.prefs.AppPreferences
 
@@ -14,6 +13,5 @@ class AppContainer(context: Context) {
     private val database = AlbumDatabase.build(context)
     val photoLayerDao = database.photoLayerDao()
     val photoFileRepository = PhotoFileRepository(context)
-    val photoExportRepository = PhotoExportRepository(context)
     val backupRepository = BackupRepository(context, photoFileRepository)
 }

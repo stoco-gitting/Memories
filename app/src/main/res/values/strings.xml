@@ -8,10 +8,7 @@
     <string name="canvas_empty_title">Nosso Álbum</string>
     <string name="canvas_add_photo">Adicionar foto</string>
     <string name="caption_hint">Escreva algo…</string>
-    <string name="export_success">Salvo na galeria</string>
-    <string name="export_failure">Não foi possível salvar. Tente novamente.</string>
     <string name="photo_add_failure">Não foi possível adicionar a foto. Tente novamente.</string>
-    <string name="export_view_gallery">Exportar</string>
     <string name="cancel">Cancelar</string>
     <string name="save">Salvar</string>
     <string name="canvas_mode_edit">Modo edição (toque para navegar)</string>
