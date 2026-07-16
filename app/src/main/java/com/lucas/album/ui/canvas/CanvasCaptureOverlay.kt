@@ -63,8 +63,14 @@ private fun computeCanvasBounds(layers: List<PhotoLayerEntity>): CanvasBounds? {
 }
 
 // Renders the real PhotoLayerItem composables — unmodified, same frame/crop/caption as
-// on-screen — off-screen and un-zoomed, then captures that to a bitmap. This is what
-// guarantees export matches the canvas: it IS the canvas, not a redrawn approximation of it.
+// on-screen — off-screen, then captures that to a bitmap. This is what guarantees export
+// matches the canvas: it IS the canvas, not a redrawn approximation of it.
+//
+// Each photo's position is remapped to be a fraction of the *export bounds* rather than the
+// full 4000dp virtual canvas, and PhotoLayerItem is given the export bounds' own pixel size
+// as its "canvas" — so every photo is laid out directly within a container that's actually
+// the size it thinks it is, rather than an oversized 4000dp box nested (and silently
+// constrained down) inside a much smaller one.
 @Composable
 fun CanvasCaptureOverlay(
     layers: List<PhotoLayerEntity>,
@@ -80,7 +86,9 @@ fun CanvasCaptureOverlay(
 
     val graphicsLayer = rememberGraphicsLayer()
     val density = LocalDensity.current
-    val virtualSizePx = with(density) { CanvasConstants.VIRTUAL_CANVAS_SIZE.toPx() }
+    val virtualSizeDp = CanvasConstants.VIRTUAL_CANVAS_SIZE.value
+    val boundsWidthPx = with(density) { bounds.widthDp.dp.toPx() }
+    val boundsHeightPx = with(density) { bounds.heightDp.dp.toPx() }
 
     Box(modifier = Modifier.offset(x = OFFSCREEN_OFFSET, y = OFFSCREEN_OFFSET)) {
         Box(
@@ -93,24 +101,22 @@ fun CanvasCaptureOverlay(
                     drawLayer(graphicsLayer)
                 },
         ) {
-            Box(
-                modifier = Modifier
-                    .size(CanvasConstants.VIRTUAL_CANVAS_SIZE)
-                    .offset(x = (-bounds.minXDp).dp, y = (-bounds.minYDp).dp),
-            ) {
-                layers.sortedBy { it.zIndex }.forEach { layer ->
-                    PhotoLayerItem(
-                        layer = layer,
-                        photoFile = fileFor(layer),
-                        canvasWidthPx = virtualSizePx,
-                        canvasHeightPx = virtualSizePx,
-                        editable = false,
-                        onTransform = { _, _, _, _ -> },
-                        onGestureStart = {},
-                        onCaptionClick = {},
-                        onDeleteClick = {},
-                    )
-                }
+            layers.sortedBy { it.zIndex }.forEach { layer ->
+                val remapped = layer.copy(
+                    posXFraction = ((layer.posXFraction * virtualSizeDp - bounds.minXDp) / bounds.widthDp).coerceIn(0f, 1f),
+                    posYFraction = ((layer.posYFraction * virtualSizeDp - bounds.minYDp) / bounds.heightDp).coerceIn(0f, 1f),
+                )
+                PhotoLayerItem(
+                    layer = remapped,
+                    photoFile = fileFor(layer),
+                    canvasWidthPx = boundsWidthPx,
+                    canvasHeightPx = boundsHeightPx,
+                    editable = false,
+                    onTransform = { _, _, _, _ -> },
+                    onGestureStart = {},
+                    onCaptionClick = {},
+                    onDeleteClick = {},
+                )
             }
         }
 
